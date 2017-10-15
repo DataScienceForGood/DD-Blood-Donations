@@ -126,6 +126,7 @@ $(document).ready(function () {
 
 <div id="introduction" class="section level2">
 <h2>1 Introduction</h2>
+<p>Last update Sunday 15.10.2017 21:59:45 CEST.</p>
 <div id="load-and-check-data" class="section level3">
 <h3>1.1 Load and Check Data</h3>
 <pre class="r"><code>#https://s3.amazonaws.com/drivendata/data/2/public/9db113a1-cdbe-4b1c-98c2-11590f124dd8.csv
@@ -296,25 +297,46 @@ ind &lt;- createDataPartition(y = train$Made.Donation.in.March.2007, p = 0.75, l
 train.train &lt;- train[ind,]
 train.test &lt;- train[-ind,]</code></pre>
 </div>
-<div id="tunning-prediction-svm-from-e1071-package" class="section level4">
-<h4>5.1.2 Tunning prediction (SVM from e1071 package)</h4>
-<p>First algorithm which was chosen is Support Vector Machine from e1071 package. It’s necessary to evaluate model better and tune the parameters. Documentation is here <a href="https://cran.r-project.org/web/packages/e1071/e1071.pdf" class="uri">https://cran.r-project.org/web/packages/e1071/e1071.pdf</a></p>
+<div id="tunning-prediction-svm" class="section level4">
+<h4>5.1.2 Tunning prediction SVM</h4>
+<p>First algorithm which was chosen is Support Vector Machine from e1071 package. It’s necessary to evaluate model better and tune the parameters. Documentation is here <a href="https://cran.r-project.org/web/packages/e1071/e1071.pdf" class="uri">https://cran.r-project.org/web/packages/e1071/e1071.pdf</a>. Tips on practical use here: <a href="https://cran.ms.unimelb.edu.au/web/packages/e1071/vignettes/svmdoc.pdf" class="uri">https://cran.ms.unimelb.edu.au/web/packages/e1071/vignettes/svmdoc.pdf</a> from which was taken idea to use tune.svn function.</p>
 <pre class="r"><code>set.seed(123) #reproducibility
-model &lt;- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, cross = 10)
-pred &lt;- predict(model, train.test, probability = T)
-
-head(pred)</code></pre>
-<pre><code>##          6          8         10         11         12         13 
-## 0.04340386 0.05296131 0.04194854 0.03989838 0.07042940 0.04628280</code></pre>
-<pre class="r"><code># Evaluation notes about best features combination for prediction:
-# Number.of.Donations + Months.since.Last.Donation                                 0.9319239
-# Number.of.Donations                                                              0.9653561
-# Months.since.Last.Donation                                                       0.9799749
-# Months.since.First.Donation                                                      0.9804339
-# Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation   1.89582</code></pre>
+obj &lt;- tune.svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, gamma = 2^(-1:1), cost = 2^(2:5), probability = T)
+obj</code></pre>
+<pre><code>## 
+## Parameter tuning of 'svm':
+## 
+## - sampling method: 10-fold cross validation 
+## 
+## - best parameters:
+##  gamma cost
+##      2    8
+## 
+## - best performance: 0.1859035</code></pre>
+<pre class="r"><code>set.seed(123) #reproducibility
+obj &lt;- tune.svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, cost = 2^(2:5), gamma = 2^(-1:1) , probability = T)
+obj</code></pre>
+<pre><code>## 
+## Parameter tuning of 'svm':
+## 
+## - sampling method: 10-fold cross validation 
+## 
+## - best parameters:
+##  gamma cost
+##      1    4
+## 
+## - best performance: 0.2108802</code></pre>
+<p>With this result we can perform the prediction either with recommended parameters for cost and gamma or with empirically found:</p>
+<pre class="r"><code>set.seed(123) #reproducibility
+model &lt;- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 1, cost = 20)
+pred &lt;- predict(model, train.test, probability = T)</code></pre>
+</div>
+<div id="tuning-prediction-randomforest" class="section level4">
+<h4>5.1.3 Tuning prediction RandomForest</h4>
+<p>Second algorithm based on discussion tips on DrivenData site under the cometition was RandomForest.</p>
 </div>
 <div id="tuning-prediction-another-algorithm-from-another-package" class="section level4">
-<h4>5.1.3 Tuning prediction (another algorithm from another package)</h4>
+<h4>5.1.4 Tuning prediction (another algorithm from another package)</h4>
 <p>We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.</p>
 </div>
 </div>
@@ -330,29 +352,90 @@ head(pred)</code></pre>
 }
 
 LogLossBinary(train.test$Made.Donation.in.March.2007, pred)</code></pre>
-<pre><code>## [1] 0.9319239</code></pre>
+<pre><code>## [1] 0.8366062</code></pre>
 </div>
 <div id="final-prediction" class="section level3">
 <h3>5.3 Final Prediction</h3>
-<p>Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition. Let’s do it with reasonable output since it’s possible just 3 times a day and can be done only by dedicated member of group!</p>
-<pre class="r"><code>model &lt;- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, probability = T, cross = 10)
-pred &lt;- predict(model, test, probability = T)
-head(pred, 5)</code></pre>
-<pre><code>##          1          2          3          4          5 
-## 0.11423139 0.04026548 0.04278221 0.04167493 0.09983155</code></pre>
+<p>Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition.</p>
+<div id="final-prediction-with-svm" class="section level4">
+<h4>5.3.1 Final Prediction with SVM</h4>
+<pre class="r"><code>model &lt;- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, probability = T, gamma = 1, cost = 20)
+pred &lt;- predict(model, test, probability = T)</code></pre>
+<p>Evaluation notes about best features combination for prediction:</p>
+<table>
+<colgroup>
+<col width="80%"></col>
+<col width="9%"></col>
+<col width="9%"></col>
+</colgroup>
+<thead>
+<tr class="header">
+<th>SVM Features Setup</th>
+<th>Log Loss Evaluation</th>
+<th>Log Loss DrivenData</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Number.of.Donations + Months.since.Last.Donation</td>
+<td>0.9319239</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>+ gamma = 2, cost = 8</td>
+<td>1.3473510</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>+ gamma = 1, cost = 4</td>
+<td>0.8616842</td>
+<td>0.8568</td>
+</tr>
+<tr class="even">
+<td>+ gamma = 1, cost = 20</td>
+<td>0.8366062</td>
+<td>0.8535</td>
+</tr>
+<tr class="odd">
+<td>Number.of.Donations</td>
+<td>0.9653561</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Months.since.Last.Donation</td>
+<td>0.9799749</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Months.since.First.Donation</td>
+<td>0.9804339</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation</td>
+<td>1.8958200</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="final-prediction-with-randomforest" class="section level4">
+<h4>5.3.2 Final Prediction with RandomForest</h4>
+<pre class="r"><code># TODO</code></pre>
+</div>
 </div>
 </div>
 <div id="write-output-to-file" class="section level2">
-<h2>6 Write output to file</h2>
+<h2>6 Write Output to File</h2>
 <pre class="r"><code>out &lt;- data.frame(X = test$X, pred = pred)
 names(out) &lt;- c(&quot;&quot;,&quot;Made Donation in March 2007&quot;)
 head(out, 5)</code></pre>
 <pre><code>##       Made Donation in March 2007
-## 1 659                  0.11423139
-## 2 276                  0.04026548
-## 3 263                  0.04278221
-## 4 303                  0.04167493
-## 5  83                  0.09983155</code></pre>
+## 1 659                 0.042817795
+## 2 276                 0.006201612
+## 3 263                 0.042725303
+## 4 303                 0.045166097
+## 5  83                 0.018144155</code></pre>
 <pre class="r"><code>write.csv(out, &quot;data/BloodDonationSubmission.csv&quot;, row.names = F)</code></pre>
 </div>
 

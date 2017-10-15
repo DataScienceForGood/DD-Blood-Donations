@@ -5,6 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 ## 1 Introduction
+Last update Sunday 15.10.2017 21:59:45 CEST.
 
 ### 1.1 Load and Check Data
 
@@ -184,33 +185,61 @@ train.train <- train[ind,]
 train.test <- train[-ind,]
 ```
 
-#### 5.1.2 Tunning prediction (SVM from e1071 package)
-First algorithm which was chosen is Support Vector Machine from e1071 package. It's necessary to evaluate model better and tune the parameters. Documentation is here https://cran.r-project.org/web/packages/e1071/e1071.pdf
+#### 5.1.2 Tunning prediction SVM
+First algorithm which was chosen is Support Vector Machine from e1071 package. It's necessary to evaluate model better and tune the parameters. Documentation is here https://cran.r-project.org/web/packages/e1071/e1071.pdf. Tips on practical use here: https://cran.ms.unimelb.edu.au/web/packages/e1071/vignettes/svmdoc.pdf from which was taken idea to use tune.svn function.
 
 
 ```r
 set.seed(123) #reproducibility
-model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, cross = 10)
-pred <- predict(model, train.test, probability = T)
-
-head(pred)
+obj <- tune.svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, gamma = 2^(-1:1), cost = 2^(2:5), probability = T)
+obj
 ```
 
 ```
-##          6          8         10         11         12         13 
-## 0.04340386 0.05296131 0.04194854 0.03989838 0.07042940 0.04628280
+## 
+## Parameter tuning of 'svm':
+## 
+## - sampling method: 10-fold cross validation 
+## 
+## - best parameters:
+##  gamma cost
+##      2    8
+## 
+## - best performance: 0.1859035
 ```
+
 
 ```r
-# Evaluation notes about best features combination for prediction:
-# Number.of.Donations + Months.since.Last.Donation                                 0.9319239
-# Number.of.Donations                                                              0.9653561
-# Months.since.Last.Donation                                                       0.9799749
-# Months.since.First.Donation                                                      0.9804339
-# Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation   1.89582
+set.seed(123) #reproducibility
+obj <- tune.svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, cost = 2^(2:5), gamma = 2^(-1:1) , probability = T)
+obj
 ```
 
-#### 5.1.3 Tuning prediction (another algorithm from another package)
+```
+## 
+## Parameter tuning of 'svm':
+## 
+## - sampling method: 10-fold cross validation 
+## 
+## - best parameters:
+##  gamma cost
+##      1    4
+## 
+## - best performance: 0.2108802
+```
+With this result we can perform the prediction either with recommended parameters for cost and gamma or with empirically found:
+
+```r
+set.seed(123) #reproducibility
+model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 1, cost = 20)
+pred <- predict(model, train.test, probability = T)
+```
+
+#### 5.1.3 Tuning prediction RandomForest
+Second algorithm based on discussion tips on DrivenData site under the cometition was RandomForest.
+
+
+#### 5.1.4 Tuning prediction (another algorithm from another package)
 We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.
 
 ### 5.2 Model Evaluation
@@ -233,24 +262,39 @@ LogLossBinary(train.test$Made.Donation.in.March.2007, pred)
 ```
 
 ```
-## [1] 0.9319239
+## [1] 0.8366062
 ```
 
 ### 5.3 Final Prediction
-Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition. Let's do it with reasonable output since it's possible just 3 times a day and can be done only by dedicated member of group!
+Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition.
+
+#### 5.3.1 Final Prediction with SVM
 
 ```r
-model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, probability = T, cross = 10)
+model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, probability = T, gamma = 1, cost = 20)
 pred <- predict(model, test, probability = T)
-head(pred, 5)
 ```
 
-```
-##          1          2          3          4          5 
-## 0.11423139 0.04026548 0.04278221 0.04167493 0.09983155
+Evaluation notes about best features combination for prediction:
+
+SVM Features Setup                                                              |Log Loss Evaluation |Log Loss DrivenData
+--------------------------------------------------------------------------------|---------|---------
+Number.of.Donations + Months.since.Last.Donation                                |0.9319239|
++ gamma = 2, cost = 8                                                           |1.3473510|
++ gamma = 1, cost = 4                                                           |0.8616842|0.8568
++ gamma = 1, cost = 20                                                          |0.8366062|0.8535
+Number.of.Donations                                                             |0.9653561|
+Months.since.Last.Donation                                                      |0.9799749|
+Months.since.First.Donation                                                     |0.9804339|
+Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation  |1.8958200|
+
+#### 5.3.2 Final Prediction with RandomForest
+
+```r
+# TODO
 ```
 
-## 6 Write output to file
+## 6 Write Output to File
 
 ```r
 out <- data.frame(X = test$X, pred = pred)
@@ -260,11 +304,11 @@ head(out, 5)
 
 ```
 ##       Made Donation in March 2007
-## 1 659                  0.11423139
-## 2 276                  0.04026548
-## 3 263                  0.04278221
-## 4 303                  0.04167493
-## 5  83                  0.09983155
+## 1 659                 0.042817795
+## 2 276                 0.006201612
+## 3 263                 0.042725303
+## 4 303                 0.045166097
+## 5  83                 0.018144155
 ```
 
 ```r
