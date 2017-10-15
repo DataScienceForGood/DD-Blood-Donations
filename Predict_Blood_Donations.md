@@ -5,7 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 ## 1 Introduction
-Last update Sunday 15.10.2017 22:05:26 CEST.
+Last update Sunday 15.10.2017 22:09:53 CEST.
 
 ### 1.1 Load and Check Data
 
@@ -280,9 +280,9 @@ Evaluation notes about best features combination for prediction:
 SVM Features Setup                                                              |Log Loss Evaluation |Log Loss DrivenData
 --------------------------------------------------------------------------------|---------|---------
 Number.of.Donations + Months.since.Last.Donation                                |0.9319239|
-Number.of.Donations + Months.since.Last.Donation, gamma = 2, cost = 8           |1.3473510|
-Number.of.Donations + Months.since.Last.Donation, gamma = 1, cost = 4           |0.8616842|0.8568
-Number.of.Donations + Months.since.Last.Donation, gamma = 1, cost = 20          |0.8366062|0.8535
+and gamma = 2, cost = 8                                                         |1.3473510|
+and gamma = 1, cost = 4                                                         |0.8616842|0.8568
+and gamma = 1, cost = 20                                                        |0.8366062|0.8535
 Number.of.Donations                                                             |0.9653561|
 Months.since.Last.Donation                                                      |0.9799749|
 Months.since.First.Donation                                                     |0.9804339|
