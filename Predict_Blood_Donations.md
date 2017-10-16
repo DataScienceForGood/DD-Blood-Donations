@@ -5,7 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 ## 1 Introduction
-Last update Sunday 15.10.2017 22:09:53 CEST.
+Last update Monday 16.10.2017 17:04:10 CEST.
 
 ### 1.1 Load and Check Data
 
@@ -121,6 +121,13 @@ chart.Correlation(full[,2:7], histogram=TRUE, pch=19)
 
 With no big surprise the new feature doesn't helped us so much. It has strong correlation to _Months.since.First.Donation_ but weak to all other including _Made.Donation.in.March.2007_ which we want to predict.
 
+
+```r
+train$Avg.Donations.per.Month <- (train$Months.since.First.Donation - train$Months.since.Last.Donation) / train$Number.of.Donations
+
+test$Avg.Donations.per.Month <- (test$Months.since.First.Donation - test$Months.since.Last.Donation) / test$Number.of.Donations
+```
+
 ### 4.2 Donator types
 The previous feature engineering wasn't successful so much. On the other hand correlation plot showed us that histogram of new feature is quite skewed. So, to make it better we can establish new feature based on previous one which will define groups of donator types. Let's define them and apply, but first take a look at histogram again.
 
@@ -165,8 +172,11 @@ ggplot(data = full.donators, mapping = aes(full.donators$Donator.Type, full.dona
 And now with those values we can establish new feature in full original datasets:
 
 ```r
-full$Donator.Type <- cut(full$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
-full$Donator.Type <- factor(ifelse(is.na(full$Donator.Type), "dt0", paste(full$Donator.Type)), levels = c(levels(full$Donator.Type), "dt0"))
+train$Donator.Type <- cut(train$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
+train$Donator.Type <- factor(ifelse(is.na(train$Donator.Type), "dt0", paste(train$Donator.Type)), levels = c(levels(train$Donator.Type), "dt0"))
+
+test$Donator.Type <- cut(test$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
+test$Donator.Type <- factor(ifelse(is.na(test$Donator.Type), "dt0", paste(test$Donator.Type)), levels = c(levels(test$Donator.Type), "dt0"))
 ```
 
 *TODO - need to be finished and both engineered features can be tested in the SVM model ;-)*
@@ -231,13 +241,61 @@ With this result we can perform the prediction either with recommended parameter
 
 ```r
 set.seed(123) #reproducibility
-model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 1, cost = 20)
-pred <- predict(model, train.test, probability = T)
+svm_model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 1, cost = 20)
+pred <- predict(svm_model, train.test, probability = T)
 ```
 
 #### 5.1.3 Tuning prediction RandomForest
 Second algorithm based on discussion tips on DrivenData site under the cometition was RandomForest.
 
+
+```r
+set.seed(345)  #reproducibility
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation + Avg.Donations.per.Month + Donator.Type, data = train.train)
+
+# Show model error
+plot(rf_model, ylim=c(0,0.3))
+legend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3)
+```
+
+![](Predict_Blood_Donations_files/figure-html/rf-tune-train.train-prediction-1.png)<!-- -->
+
+
+```r
+# Get importance
+importance    <- importance(rf_model)
+varImportance <- data.frame(Variables = row.names(importance), Importance = round(importance[ ,'MeanDecreaseGini'],2))
+
+# Create a rank variable based on importance
+rankImportance <- varImportance %>% mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+```
+
+```
+## Warning: package 'bindrcpp' was built under R version 3.3.2
+```
+
+```r
+# Use ggplot2 to visualize the relative importance of variables
+ggplot(rankImportance, aes(x = reorder(Variables, Importance), y = Importance, fill = Importance)) +
+  geom_bar(stat='identity') + 
+  geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'white') +
+  labs(x = 'Variables') + coord_flip() + theme_bw()
+```
+
+![](Predict_Blood_Donations_files/figure-html/rf-importance-train.train-prediction-1.png)<!-- -->
+
+```r
+set.seed(345)  #reproducibility
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train.train, sampsize = 5)
+
+pred <- predict(rf_model, train.test, type = "prob")[,"1"] # we want to predict positive outcome probability
+head(pred,5)
+```
+
+```
+##     6     8    10    11    12 
+## 0.330 0.462 0.286 0.460 0.440
+```
 
 #### 5.1.4 Tuning prediction (another algorithm from another package)
 We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.
@@ -262,7 +320,7 @@ LogLossBinary(train.test$Made.Donation.in.March.2007, pred)
 ```
 
 ```
-## [1] 0.8366062
+## [1] 0.5796463
 ```
 
 ### 5.3 Final Prediction
@@ -271,6 +329,7 @@ Once we have model with best algorithm option we can do the prediction on test d
 #### 5.3.1 Final Prediction with SVM
 
 ```r
+set.seed(123)  #reproducibility
 model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train, probability = T, gamma = 1, cost = 20)
 pred <- predict(model, test, probability = T)
 ```
@@ -291,8 +350,25 @@ Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation  
 #### 5.3.2 Final Prediction with RandomForest
 
 ```r
-# TODO
+set.seed(345)  #reproducibility
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train, sampsize = 20)
+
+pred <- predict(rf_model, test, type = "prob")[,"1"] # we want to predict positive outcome probability
 ```
+
+Evaluation notes about best features combination for prediction:
+
+RF Features Setup                                                                   |Log Loss Evaluation |Log Loss DrivenData
+------------------------------------------------------------------------------------|---------|---------
+Avg.Donations.per.Month                                                             |3.3900730|
+Avg.Donations.per.Month + Months.since.First.Donation                               |2.3819310|
+Avg.Donations.per.Month + Months.since.First.Donation + Months.since.Last.Donation  |1.9348560|
+Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations         |1.9057520|
+and sampsize = 100                                                                  |0.7061318|
+and sampsize = 50                                                                   |0.6488936|
+and sampsize = 20                                                                   |0.6171891|0.5007
+and sampsize = 10                                                                   |0.5850539|0.5017
+and sampsize = 5                                                                    |0.5796463|
 
 ## 6 Write Output to File
 
@@ -304,11 +380,11 @@ head(out, 5)
 
 ```
 ##       Made Donation in March 2007
-## 1 659                 0.042817795
-## 2 276                 0.006201612
-## 3 263                 0.042725303
-## 4 303                 0.045166097
-## 5  83                 0.018144155
+## 1 659                       0.344
+## 2 276                       0.402
+## 3 263                       0.120
+## 4 303                       0.426
+## 5  83                       0.440
 ```
 
 ```r
