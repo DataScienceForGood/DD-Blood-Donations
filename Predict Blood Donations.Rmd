@@ -17,7 +17,7 @@ library(e1071) # svmlib
 library(PerformanceAnalytics) # correlation
 library(caret) # ML package
 library(randomForest) # random forest
-library(DT) # data table
+library(knitr) # data table
 setwd("~/Dropbox/DrivenData/Predict Blood Donations")
 
 source("multiplot.R")
@@ -221,8 +221,7 @@ Boxplot visualizations contains boundaries (calculated as 25 % and 75 % quantile
 multiplot(nod, mld, mfd, adm, cols=2)
 rm(nod, mld, mfd, adm)
 # TODO rewrite to the list of X attribute ids which can be later used for filtration during ML process!
-datatable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], 
-          options = list(dom = 'tpi', pageLength = 5), rownames = F)
+kable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], format = "markdown")
 ```
 
 ## 6 Prediction

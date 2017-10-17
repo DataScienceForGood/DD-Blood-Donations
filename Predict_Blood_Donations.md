@@ -5,7 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 ## 1 Introduction
-Last update Tuesday 17.10.2017 07:28:59 CEST.
+Last update Tuesday 17.10.2017 07:38:18 CEST.
 
 ### 1.1 Load and Check Data
 
@@ -271,12 +271,27 @@ multiplot(nod, mld, mfd, adm, cols=2)
 ```r
 rm(nod, mld, mfd, adm)
 # TODO rewrite to the list of X attribute ids which can be later used for filtration during ML process!
-datatable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], 
-          options = list(dom = 'tpi', pageLength = 5), rownames = F)
+kable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], format = "markdown")
 ```
 
-<!--html_preserve--><div id="htmlwidget-2abc1a043fc490ce1cac" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-2abc1a043fc490ce1cac">{"x":{"filter":"none","data":[[2,5,23,4,11,16,74,2,2,4,72,23,2,2],[50,46,38,2,2,2,1,43,44,33,1,2,34,41],[98,98,98,59,70,70,74,86,98,98,72,87,77,98],[1.92,2.02173913043478,1.97368421052632,27.5,29.5,27,0,1.95348837209302,2.18181818181818,2.84848484848485,0,32,2.20588235294118,2.34146341463415]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Months.since.Last.Donation\u003c/th>\n      <th>Number.of.Donations\u003c/th>\n      <th>Months.since.First.Donation\u003c/th>\n      <th>Avg.Donations.per.Month\u003c/th>\n    \u003c/tr>\n  \u003c/thead>\n\u003c/table>","options":{"dom":"tpi","pageLength":5,"columnDefs":[{"className":"dt-right","targets":[0,1,2,3]}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script><!--/html_preserve-->
+
+
+|    | Months.since.Last.Donation| Number.of.Donations| Months.since.First.Donation| Avg.Donations.per.Month|
+|:---|--------------------------:|-------------------:|---------------------------:|-----------------------:|
+|1   |                          2|                  50|                          98|                1.920000|
+|9   |                          5|                  46|                          98|                2.021739|
+|264 |                         23|                  38|                          98|                1.973684|
+|301 |                          4|                   2|                          59|               27.500000|
+|363 |                         11|                   2|                          70|               29.500000|
+|381 |                         16|                   2|                          70|               27.000000|
+|386 |                         74|                   1|                          74|                0.000000|
+|387 |                          2|                  43|                          86|                1.953488|
+|389 |                          2|                  44|                          98|                2.181818|
+|398 |                          4|                  33|                          98|                2.848485|
+|576 |                         72|                   1|                          72|                0.000000|
+|585 |                         23|                   2|                          87|               32.000000|
+|717 |                          2|                  34|                          77|                2.205882|
+|750 |                          2|                  41|                          98|                2.341463|
 
 ## 6 Prediction
 ### 6.1 Model Tuning
