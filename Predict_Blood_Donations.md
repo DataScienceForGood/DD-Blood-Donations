@@ -5,7 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 ## 1 Introduction
-Last update Monday 16.10.2017 17:04:10 CEST.
+Last update Tuesday 17.10.2017 07:28:59 CEST.
 
 ### 1.1 Load and Check Data
 
@@ -179,13 +179,110 @@ test$Donator.Type <- cut(test$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels
 test$Donator.Type <- factor(ifelse(is.na(test$Donator.Type), "dt0", paste(test$Donator.Type)), levels = c(levels(test$Donator.Type), "dt0"))
 ```
 
-*TODO - need to be finished and both engineered features can be tested in the SVM model ;-)*
+## 5 Outliers
+Outliers are big topic and sooner or later there is the time to get rid of them to improve machine learning algorithm. Of course we don't want to remove them all and definitelly we cannot remove them from test data.
 
-## 5 Prediction
-### 5.1 Model Tuning
+When investigating outliers and defining limits for it's filtration we need to take into account all the relevant attributes in training data and do for example boxplots. Let's prepare boxplots for _Number.of.Donations_, _Months.since.Last.Donation_, _Months.since.First.Donation_ and _Avg.Donations.per.Month_. Maybe we can later take into account also _Donator.Type_.
+
+
+```r
+qnt <- quantile(train$Number.of.Donations, probs=c(.25, .75))
+H <- 1.5 * IQR(train$Number.of.Donations)
+nod.min <- qnt[1] - H
+nod.max <- qnt[2] + H
+
+nod <- ggplot(data = train, mapping = aes(factor("train"), Number.of.Donations)) + 
+       geom_boxplot() + geom_hline(yintercept = nod.min, color = "orange") + 
+       geom_hline(yintercept = nod.max, color = "orange") + 
+       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(30)),
+                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
+                    inherit.aes = FALSE, color = "magenta") + 
+       geom_text(aes(x = 0.5, y = nod.min, label = nod.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = nod.max, label = nod.max), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = 30, label = 30), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
+       labs(title = "Outliers Number.of.Donations", x = "Train data") + theme_bw()
+#rm(nod.min, nod.max, qnt, H)
+```
+
+
+```r
+qnt <- quantile(train$Months.since.Last.Donation, probs=c(.25, .75))
+H <- 1.5 * IQR(train$Months.since.Last.Donation)
+mld.min <- qnt[1] - H
+mld.max <- qnt[2] + H
+
+mld <- ggplot(data = train, mapping = aes(factor("train"), Months.since.Last.Donation)) + 
+       geom_boxplot() + geom_hline(yintercept = mld.min, color = "orange") + 
+       geom_hline(yintercept = mld.max, color = "orange") + 
+       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(50)),
+                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
+                    inherit.aes = FALSE, color = "magenta") + 
+       geom_text(aes(x = 0.5, y = mld.min, label = mld.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = mld.max, label = mld.max), hjust=-0.5, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = 50, label = 50), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
+       labs(title = "Outliers Months.since.Last.Donation", x = "Train data") + theme_bw()
+#rm(mld.min, mld.max, qnt, H)
+```
+
+
+```r
+qnt <- quantile(train$Months.since.First.Donation, probs=c(.25, .75))
+H <- 1.5 * IQR(train$Months.since.First.Donation)
+mfd.min <- qnt[1] - H
+mfd.max <- qnt[2] + H
+
+mfd <- ggplot(data = train, mapping = aes(factor("train"), Months.since.First.Donation)) + 
+       geom_boxplot() + geom_hline(yintercept = mfd.min, color = "orange") + 
+       geom_hline(yintercept = mfd.max, color = "orange") + 
+       geom_text(aes(x = 0.5, y = mfd.min, label = mfd.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = mfd.max, label = mfd.max), hjust=-0.5, vjust=+1.5, size = 3, colour = "orange") +
+       labs(title = "Outliers Months.since.First.Donation", x = "Train data") + theme_bw()
+#rm(mfd.min, mfd.max, qnt, H)
+```
+
+
+```r
+qnt <- quantile(train$Avg.Donations.per.Month, probs=c(.25, .75))
+H <- 1.5 * IQR(train$Avg.Donations.per.Month)
+adm.min <- qnt[1] - H
+adm.max <- qnt[2] + H
+
+adm <- ggplot(data = train, mapping = aes(factor("train"), Avg.Donations.per.Month)) + 
+       geom_boxplot() + geom_hline(yintercept = adm.min, color ="orange") + 
+       geom_hline(yintercept = adm.max, color = "orange") + 
+       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(25)),
+                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
+                    inherit.aes = FALSE, color = "magenta") +   
+       geom_text(aes(x = 0.5, y = adm.min, label = adm.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = adm.max, label = adm.max), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
+       geom_text(aes(x = 0.5, y = 25, label = 25), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
+       labs(title = "Boxplot Avg.Donations.per.Month", x = "Train data") + theme_bw()
+#rm(adm.min, adm.max, qnt, H)
+```
+
+Boxplot visualizations contains boundaries (calculated as 25 % and 75 % quantiles +/- 1.5x interquartile range) defined by orange color under and over which we could look for outliers. But not all of them we want to filter out, because as much we filter out as less we will have data for training. So, there has to be boundary for each attribute given by purple line. Those purple limits (if any) are then used for finding outliers which are summarized in following table.
+
+```r
+multiplot(nod, mld, mfd, adm, cols=2)
+```
+
+![](Predict_Blood_Donations_files/figure-html/outliers-summary-1.png)<!-- -->
+
+```r
+rm(nod, mld, mfd, adm)
+# TODO rewrite to the list of X attribute ids which can be later used for filtration during ML process!
+datatable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], 
+          options = list(dom = 'tpi', pageLength = 5), rownames = F)
+```
+
+<!--html_preserve--><div id="htmlwidget-2abc1a043fc490ce1cac" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2abc1a043fc490ce1cac">{"x":{"filter":"none","data":[[2,5,23,4,11,16,74,2,2,4,72,23,2,2],[50,46,38,2,2,2,1,43,44,33,1,2,34,41],[98,98,98,59,70,70,74,86,98,98,72,87,77,98],[1.92,2.02173913043478,1.97368421052632,27.5,29.5,27,0,1.95348837209302,2.18181818181818,2.84848484848485,0,32,2.20588235294118,2.34146341463415]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Months.since.Last.Donation\u003c/th>\n      <th>Number.of.Donations\u003c/th>\n      <th>Months.since.First.Donation\u003c/th>\n      <th>Avg.Donations.per.Month\u003c/th>\n    \u003c/tr>\n  \u003c/thead>\n\u003c/table>","options":{"dom":"tpi","pageLength":5,"columnDefs":[{"className":"dt-right","targets":[0,1,2,3]}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script><!--/html_preserve-->
+
+## 6 Prediction
+### 6.1 Model Tuning
 It's not good idea to blindly train the model on train data and then submit the prediction on test data. So, let's first tune it a bit.
 
-#### 5.1.1 Data Preparation
+#### 6.1.1 Data Preparation
 We can use test data split them to testing and training set and try to figure out which model would be the best.
 
 ```r
@@ -195,7 +292,7 @@ train.train <- train[ind,]
 train.test <- train[-ind,]
 ```
 
-#### 5.1.2 Tunning prediction SVM
+#### 6.1.2 Tunning prediction SVM
 First algorithm which was chosen is Support Vector Machine from e1071 package. It's necessary to evaluate model better and tune the parameters. Documentation is here https://cran.r-project.org/web/packages/e1071/e1071.pdf. Tips on practical use here: https://cran.ms.unimelb.edu.au/web/packages/e1071/vignettes/svmdoc.pdf from which was taken idea to use tune.svn function.
 
 
@@ -245,7 +342,7 @@ svm_model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.sinc
 pred <- predict(svm_model, train.test, probability = T)
 ```
 
-#### 5.1.3 Tuning prediction RandomForest
+#### 6.1.3 Tuning prediction RandomForest
 Second algorithm based on discussion tips on DrivenData site under the cometition was RandomForest.
 
 
@@ -297,10 +394,10 @@ head(pred,5)
 ## 0.330 0.462 0.286 0.460 0.440
 ```
 
-#### 5.1.4 Tuning prediction (another algorithm from another package)
+#### 6.1.4 Tuning prediction (another algorithm from another package)
 We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.
 
-### 5.2 Model Evaluation
+### 6.2 Model Evaluation
 When we have binary classification problem we can simple caclulate accuracy and present cofusion matrix, but in this case when we calculate probability as output not the 1 or 0 class we need to evaluate it differently.
 
 For such cases is calculated Logartimic loss which is quite opposite than accuracy which we are trying to maximize, this measure we are trying to minimize. With following formula for it's caluclation:
@@ -323,10 +420,10 @@ LogLossBinary(train.test$Made.Donation.in.March.2007, pred)
 ## [1] 0.5796463
 ```
 
-### 5.3 Final Prediction
+### 6.3 Final Prediction
 Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition.
 
-#### 5.3.1 Final Prediction with SVM
+#### 6.3.1 Final Prediction with SVM
 
 ```r
 set.seed(123)  #reproducibility
@@ -347,7 +444,7 @@ Months.since.Last.Donation                                                      
 Months.since.First.Donation                                                     |0.9804339|
 Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation  |1.8958200|
 
-#### 5.3.2 Final Prediction with RandomForest
+#### 6.3.2 Final Prediction with RandomForest
 
 ```r
 set.seed(345)  #reproducibility
@@ -370,7 +467,7 @@ and sampsize = 20                                                               
 and sampsize = 10                                                                   |0.5850539|0.5017
 and sampsize = 5                                                                    |0.5796463|
 
-## 6 Write Output to File
+## 7 Write Output to File
 
 ```r
 out <- data.frame(X = test$X, pred = pred)
