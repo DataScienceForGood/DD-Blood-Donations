@@ -1,13 +1,13 @@
 # Predict Blood Donations
 Data Science 4 Good (Swiss)  
-10/10/2017  
+`r format(Sys.time(), '%B %d, %Y')`  
 
 
 
-## 1 Introduction
-Last update Tuesday 17.10.2017 07:38:18 CEST.
+# Introduction
+Last update Tuesday 24.10.2017 07:06:39 CEST.
 
-### 1.1 Load and Check Data
+## Load and Check Data
 
 ```r
 #https://s3.amazonaws.com/drivendata/data/2/public/9db113a1-cdbe-4b1c-98c2-11590f124dd8.csv
@@ -44,7 +44,7 @@ Total.Volume.Donated..c.c.. |Total amount of blood that the donor has donated in
 Months.since.First.Donation |Number of months since the donor's first donation
 Made.Donation.in.March.2007 |Probability that a donor made a donation in March 2007
 
-## 2 Missing Values
+# Missing Values
 
 ```r
 summary(full)
@@ -78,8 +78,8 @@ summary(full)
 ```
 From summary prespective none of the attributes has N/A values except unknown 200 observations in test dataset for attribute which we need to predict.
 
-## 3 Exploratory Analysis
-### 3.1 Training Dataset Correlation
+# Exploratory Analysis
+## Training Dataset Correlation
 Initial investigation brought us the information we have all data numerical, so we can take a look closely to them and see what's the correlation amongs them and to the attribute which we want to predict.
 
 ```r
@@ -93,10 +93,10 @@ Looking closer at the results it's clear that:
 - _Number.of.Donations_ and _Total.Volume.Donated..c.c.._ are 100 % dependent (which was expectable) so we can use one of them only (I would vote for _Number.of.Donations_)
 - After eliminating _Total.Volume.Donated..c.c.._ we can see that strongest correlation to attribute which we want to predict (_Made.Donation.in.March.2007_) have attributes _Months.since.Last.Donation_ and _Number.of.Donations_ so lets use those two for building the model.
 
-## 4 Feature Engineering
+# Feature Engineering
 Question if there is possibility to create some new feature is always a part of any kind of machine learning work. 
 
-### 4.1 Average Donations per Month
+## Average Donations per Month
 Here is the simpliest one which came to my mind using all attributes (considering _Total.Volume.Donated..c.c.._ as equivalent to _Number.of.Donations_) it's _Avg.Donations.per.Month_ calculated as diff between _Months.since.First.Donation_ and _Months.since.Last.Donation_ and divided by _Number.of.Donations_.
 
 ```r
@@ -128,7 +128,7 @@ train$Avg.Donations.per.Month <- (train$Months.since.First.Donation - train$Mont
 test$Avg.Donations.per.Month <- (test$Months.since.First.Donation - test$Months.since.Last.Donation) / test$Number.of.Donations
 ```
 
-### 4.2 Donator types
+## Donator types
 The previous feature engineering wasn't successful so much. On the other hand correlation plot showed us that histogram of new feature is quite skewed. So, to make it better we can establish new feature based on previous one which will define groups of donator types. Let's define them and apply, but first take a look at histogram again.
 
 ```r
@@ -169,6 +169,10 @@ ggplot(data = full.donators, mapping = aes(full.donators$Donator.Type, full.dona
 
 ![](Predict_Blood_Donations_files/figure-html/investigate-average-feature-1.png)<!-- -->
 
+```r
+rm(full.agg, full.donators)
+```
+
 And now with those values we can establish new feature in full original datasets:
 
 ```r
@@ -179,7 +183,7 @@ test$Donator.Type <- cut(test$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels
 test$Donator.Type <- factor(ifelse(is.na(test$Donator.Type), "dt0", paste(test$Donator.Type)), levels = c(levels(test$Donator.Type), "dt0"))
 ```
 
-## 5 Outliers
+# Outliers
 Outliers are big topic and sooner or later there is the time to get rid of them to improve machine learning algorithm. Of course we don't want to remove them all and definitelly we cannot remove them from test data.
 
 When investigating outliers and defining limits for it's filtration we need to take into account all the relevant attributes in training data and do for example boxplots. Let's prepare boxplots for _Number.of.Donations_, _Months.since.Last.Donation_, _Months.since.First.Donation_ and _Avg.Donations.per.Month_. Maybe we can later take into account also _Donator.Type_.
@@ -194,14 +198,9 @@ nod.max <- qnt[2] + H
 nod <- ggplot(data = train, mapping = aes(factor("train"), Number.of.Donations)) + 
        geom_boxplot() + geom_hline(yintercept = nod.min, color = "orange") + 
        geom_hline(yintercept = nod.max, color = "orange") + 
-       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(30)),
-                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
-                    inherit.aes = FALSE, color = "magenta") + 
        geom_text(aes(x = 0.5, y = nod.min, label = nod.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
        geom_text(aes(x = 0.5, y = nod.max, label = nod.max), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
-       geom_text(aes(x = 0.5, y = 30, label = 30), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
        labs(title = "Outliers Number.of.Donations", x = "Train data") + theme_bw()
-#rm(nod.min, nod.max, qnt, H)
 ```
 
 
@@ -214,14 +213,9 @@ mld.max <- qnt[2] + H
 mld <- ggplot(data = train, mapping = aes(factor("train"), Months.since.Last.Donation)) + 
        geom_boxplot() + geom_hline(yintercept = mld.min, color = "orange") + 
        geom_hline(yintercept = mld.max, color = "orange") + 
-       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(50)),
-                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
-                    inherit.aes = FALSE, color = "magenta") + 
        geom_text(aes(x = 0.5, y = mld.min, label = mld.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
        geom_text(aes(x = 0.5, y = mld.max, label = mld.max), hjust=-0.5, vjust=-1, size = 3, colour = "orange") +
-       geom_text(aes(x = 0.5, y = 50, label = 50), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
        labs(title = "Outliers Months.since.Last.Donation", x = "Train data") + theme_bw()
-#rm(mld.min, mld.max, qnt, H)
 ```
 
 
@@ -237,7 +231,6 @@ mfd <- ggplot(data = train, mapping = aes(factor("train"), Months.since.First.Do
        geom_text(aes(x = 0.5, y = mfd.min, label = mfd.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
        geom_text(aes(x = 0.5, y = mfd.max, label = mfd.max), hjust=-0.5, vjust=+1.5, size = 3, colour = "orange") +
        labs(title = "Outliers Months.since.First.Donation", x = "Train data") + theme_bw()
-#rm(mfd.min, mfd.max, qnt, H)
 ```
 
 
@@ -250,14 +243,9 @@ adm.max <- qnt[2] + H
 adm <- ggplot(data = train, mapping = aes(factor("train"), Avg.Donations.per.Month)) + 
        geom_boxplot() + geom_hline(yintercept = adm.min, color ="orange") + 
        geom_hline(yintercept = adm.max, color = "orange") + 
-       geom_segment(data = data.frame(boxplot.nr = c(1), value = c(25)),
-                    aes(x = boxplot.nr - 0.3, xend = boxplot.nr + 0.3, y = value, yend = value), 
-                    inherit.aes = FALSE, color = "magenta") +   
        geom_text(aes(x = 0.5, y = adm.min, label = adm.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
        geom_text(aes(x = 0.5, y = adm.max, label = adm.max), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
-       geom_text(aes(x = 0.5, y = 25, label = 25), hjust=-0.5, vjust=-1, size = 3, colour = "magenta") +
        labs(title = "Boxplot Avg.Donations.per.Month", x = "Train data") + theme_bw()
-#rm(adm.min, adm.max, qnt, H)
 ```
 
 Boxplot visualizations contains boundaries (calculated as 25 % and 75 % quantiles +/- 1.5x interquartile range) defined by orange color under and over which we could look for outliers. But not all of them we want to filter out, because as much we filter out as less we will have data for training. So, there has to be boundary for each attribute given by purple line. Those purple limits (if any) are then used for finding outliers which are summarized in following table.
@@ -269,35 +257,40 @@ multiplot(nod, mld, mfd, adm, cols=2)
 ![](Predict_Blood_Donations_files/figure-html/outliers-summary-1.png)<!-- -->
 
 ```r
-rm(nod, mld, mfd, adm)
-# TODO rewrite to the list of X attribute ids which can be later used for filtration during ML process!
-kable(full[(full$Months.since.Last.Donation > 50 | full$Number.of.Donations > 30 | full$Avg.Donations.per.Month > 25), c(2,3,5,7)], format = "markdown")
+rm(nod, nod.min, nod.max, mld, mld.min, mld.max, mfd, mfd.min, mfd.max, adm, adm.min, adm.max, qnt, H)
 ```
 
+Let's remove outliers from training data.
 
+```r
+# 11 outliers X ids
+X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Avg.Donations.per.Month > 25), "X"]
+length(X)
+```
 
-|    | Months.since.Last.Donation| Number.of.Donations| Months.since.First.Donation| Avg.Donations.per.Month|
-|:---|--------------------------:|-------------------:|---------------------------:|-----------------------:|
-|1   |                          2|                  50|                          98|                1.920000|
-|9   |                          5|                  46|                          98|                2.021739|
-|264 |                         23|                  38|                          98|                1.973684|
-|301 |                          4|                   2|                          59|               27.500000|
-|363 |                         11|                   2|                          70|               29.500000|
-|381 |                         16|                   2|                          70|               27.000000|
-|386 |                         74|                   1|                          74|                0.000000|
-|387 |                          2|                  43|                          86|                1.953488|
-|389 |                          2|                  44|                          98|                2.181818|
-|398 |                          4|                  33|                          98|                2.848485|
-|576 |                         72|                   1|                          72|                0.000000|
-|585 |                         23|                   2|                          87|               32.000000|
-|717 |                          2|                  34|                          77|                2.205882|
-|750 |                          2|                  41|                          98|                2.341463|
+```
+## [1] 11
+```
 
-## 6 Prediction
-### 6.1 Model Tuning
+```r
+# 23 outliers X ids
+X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Avg.Donations.per.Month > 20), "X"]
+length(X)
+```
+
+```
+## [1] 23
+```
+
+```r
+train <- train[!(train$X %in% X),]
+```
+
+# Prediction
+## Model Tuning
 It's not good idea to blindly train the model on train data and then submit the prediction on test data. So, let's first tune it a bit.
 
-#### 6.1.1 Data Preparation
+### Data Preparation
 We can use test data split them to testing and training set and try to figure out which model would be the best.
 
 ```r
@@ -307,7 +300,7 @@ train.train <- train[ind,]
 train.test <- train[-ind,]
 ```
 
-#### 6.1.2 Tunning prediction SVM
+### Tunning prediction SVM
 First algorithm which was chosen is Support Vector Machine from e1071 package. It's necessary to evaluate model better and tune the parameters. Documentation is here https://cran.r-project.org/web/packages/e1071/e1071.pdf. Tips on practical use here: https://cran.ms.unimelb.edu.au/web/packages/e1071/vignettes/svmdoc.pdf from which was taken idea to use tune.svn function.
 
 
@@ -325,9 +318,9 @@ obj
 ## 
 ## - best parameters:
 ##  gamma cost
-##      2    8
+##    0.5    4
 ## 
-## - best performance: 0.1859035
+## - best performance: 0.2241934
 ```
 
 
@@ -345,19 +338,19 @@ obj
 ## 
 ## - best parameters:
 ##  gamma cost
-##      1    4
+##    0.5    4
 ## 
-## - best performance: 0.2108802
+## - best performance: 0.2116804
 ```
 With this result we can perform the prediction either with recommended parameters for cost and gamma or with empirically found:
 
 ```r
 set.seed(123) #reproducibility
-svm_model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 1, cost = 20)
+svm_model <- svm(Made.Donation.in.March.2007 ~ Number.of.Donations + Months.since.Last.Donation, data = train.train, probability = T, gamma = 0.1, cost = 10)
 pred <- predict(svm_model, train.test, probability = T)
 ```
 
-#### 6.1.3 Tuning prediction RandomForest
+### Tuning prediction RandomForest
 Second algorithm based on discussion tips on DrivenData site under the cometition was RandomForest.
 
 
@@ -396,23 +389,18 @@ ggplot(rankImportance, aes(x = reorder(Variables, Importance), y = Importance, f
 
 ![](Predict_Blood_Donations_files/figure-html/rf-importance-train.train-prediction-1.png)<!-- -->
 
+
 ```r
 set.seed(345)  #reproducibility
-rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train.train, sampsize = 5)
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train.train, sampsize = 20)
 
 pred <- predict(rf_model, train.test, type = "prob")[,"1"] # we want to predict positive outcome probability
-head(pred,5)
 ```
 
-```
-##     6     8    10    11    12 
-## 0.330 0.462 0.286 0.460 0.440
-```
-
-#### 6.1.4 Tuning prediction (another algorithm from another package)
+### Tuning prediction (another algorithm from another package)
 We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.
 
-### 6.2 Model Evaluation
+## Model Evaluation
 When we have binary classification problem we can simple caclulate accuracy and present cofusion matrix, but in this case when we calculate probability as output not the 1 or 0 class we need to evaluate it differently.
 
 For such cases is calculated Logartimic loss which is quite opposite than accuracy which we are trying to maximize, this measure we are trying to minimize. With following formula for it's caluclation:
@@ -432,13 +420,13 @@ LogLossBinary(train.test$Made.Donation.in.March.2007, pred)
 ```
 
 ```
-## [1] 0.5796463
+## [1] 0.4451362
 ```
 
-### 6.3 Final Prediction
+## Final Prediction
 Once we have model with best algorithm option we can do the prediction on test data and submit it to DrivenData competition.
 
-#### 6.3.1 Final Prediction with SVM
+### Final Prediction with SVM
 
 ```r
 set.seed(123)  #reproducibility
@@ -459,7 +447,7 @@ Months.since.Last.Donation                                                      
 Months.since.First.Donation                                                     |0.9804339|
 Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation  |1.8958200|
 
-#### 6.3.2 Final Prediction with RandomForest
+### Final Prediction with RandomForest
 
 ```r
 set.seed(345)  #reproducibility
@@ -479,10 +467,14 @@ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations     
 and sampsize = 100                                                                  |0.7061318|
 and sampsize = 50                                                                   |0.6488936|
 and sampsize = 20                                                                   |0.6171891|0.5007
+and sampsize = 20 (removed 11 outliers)                                             |0.5107301|0.4998
+and sampsize = 20 (removed 23 outliers)                                             |0.4451362|0.5002
 and sampsize = 10                                                                   |0.5850539|0.5017
+and sampsize = 10 (removed 11 outliers)                                             |0.5211104|
 and sampsize = 5                                                                    |0.5796463|
+and sampsize = 5 (removed 11 outliers)                                              |0.5471914|
 
-## 7 Write Output to File
+# Write Output to File
 
 ```r
 out <- data.frame(X = test$X, pred = pred)
@@ -492,11 +484,11 @@ head(out, 5)
 
 ```
 ##       Made Donation in March 2007
-## 1 659                       0.344
-## 2 276                       0.402
-## 3 263                       0.120
-## 4 303                       0.426
-## 5  83                       0.440
+## 1 659                       0.402
+## 2 276                       0.414
+## 3 263                       0.122
+## 4 303                       0.442
+## 5  83                       0.436
 ```
 
 ```r
