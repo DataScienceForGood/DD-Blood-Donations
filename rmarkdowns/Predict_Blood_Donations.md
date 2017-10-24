@@ -5,7 +5,7 @@ Data Science 4 Good (Swiss)
 
 
 # Introduction
-Last update Tuesday 24.10.2017 07:06:39 CEST.
+Last update Tuesday 24.10.2017 13:44:20 CEST.
 
 ## Load and Check Data
 
@@ -83,7 +83,7 @@ From summary prespective none of the attributes has N/A values except unknown 20
 Initial investigation brought us the information we have all data numerical, so we can take a look closely to them and see what's the correlation amongs them and to the attribute which we want to predict.
 
 ```r
-chart.Correlation(full[,2:6], histogram=TRUE, pch=19)
+chart.Correlation(full[,c(6,2:5)], histogram=TRUE, pch=19)
 ```
 
 ![](Predict_Blood_Donations_files/figure-html/full-correlation-1.png)<!-- -->
@@ -93,100 +93,55 @@ Looking closer at the results it's clear that:
 - _Number.of.Donations_ and _Total.Volume.Donated..c.c.._ are 100 % dependent (which was expectable) so we can use one of them only (I would vote for _Number.of.Donations_)
 - After eliminating _Total.Volume.Donated..c.c.._ we can see that strongest correlation to attribute which we want to predict (_Made.Donation.in.March.2007_) have attributes _Months.since.Last.Donation_ and _Number.of.Donations_ so lets use those two for building the model.
 
+
+```r
+full$Total.Volume.Donated..c.c.. <- NULL
+train$Total.Volume.Donated..c.c.. <- NULL
+test$Total.Volume.Donated..c.c.. <- NULL
+```
+
 # Feature Engineering
 Question if there is possibility to create some new feature is always a part of any kind of machine learning work. 
 
-## Average Donations per Month
-Here is the simpliest one which came to my mind using all attributes (considering _Total.Volume.Donated..c.c.._ as equivalent to _Number.of.Donations_) it's _Avg.Donations.per.Month_ calculated as diff between _Months.since.First.Donation_ and _Months.since.Last.Donation_ and divided by _Number.of.Donations_.
+## Average Months per Donation
+Here is the simpliest one which came to my mind using all attributes (considering _Total.Volume.Donated..c.c.._ as equivalent to _Number.of.Donations_) it's _Average.Months.Per.Donation_ calculated as diff between _Months.since.First.Donation_ and _Months.since.Last.Donation_ and divided by _Number.of.Donations_.
 
 ```r
-full$Avg.Donations.per.Month <- (full$Months.since.First.Donation - full$Months.since.Last.Donation) / full$Number.of.Donations
-
-summary(full$Avg.Donations.per.Month)
+full$Average.Months.Per.Donation <- (full$Months.since.First.Donation - full$Months.since.Last.Donation) / full$Number.of.Donations
 ```
 
-```
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##    0.00    0.00    3.50    4.35    6.00   32.00
-```
-In some cases this new feature is 0 which indicate people who donate blood just once.
-
-Let's take a look closely on relation to our original attributes:
-
-```r
-chart.Correlation(full[,2:7], histogram=TRUE, pch=19)
-```
-
-![](Predict_Blood_Donations_files/figure-html/avg-donations-correlation-1.png)<!-- -->
-
-With no big surprise the new feature doesn't helped us so much. It has strong correlation to _Months.since.First.Donation_ but weak to all other including _Made.Donation.in.March.2007_ which we want to predict.
+## Distance to Average
+Inspired by Timothy (Data Science 4 Good).
 
 
 ```r
-train$Avg.Donations.per.Month <- (train$Months.since.First.Donation - train$Months.since.Last.Donation) / train$Number.of.Donations
-
-test$Avg.Donations.per.Month <- (test$Months.since.First.Donation - test$Months.since.Last.Donation) / test$Number.of.Donations
+full$Distance.To.Average <- exp(-abs(full$Average.Months.Per.Donation - full$Months.since.Last.Donation))
 ```
+## Features Check and Set
 
-## Donator types
-The previous feature engineering wasn't successful so much. On the other hand correlation plot showed us that histogram of new feature is quite skewed. So, to make it better we can establish new feature based on previous one which will define groups of donator types. Let's define them and apply, but first take a look at histogram again.
 
 ```r
-ggplot(data = full, mapping = aes(full$Avg.Donations.per.Month)) + 
-  geom_histogram(breaks=seq(0, 32, by = .5), 
-                 col="black", 
-                 size = .5,
-                 fill="orange", 
-                 alpha = .5) + 
-  labs(x="Avg Donations per Month", y="Count") + 
-  xlim(c(0,32)) + theme_bw()
+chart.Correlation(full[,c(5,2,3,4,6,7)], histogram=TRUE, pch=19)
 ```
 
-![](Predict_Blood_Donations_files/figure-html/hist-average-feature-1.png)<!-- -->
+![](Predict_Blood_Donations_files/figure-html/features-check-1.png)<!-- -->
 
-Let's investigate conversion from numeric data to factors (_Donator.Type_), the boundaries (2.9,4.5, and 7) are given epirically by best split into groups (plus minimum 0 and maximum 32).
+- _Average.Months.Per.Donation_: with no big surprise this feature doesn't helped us so much. It has strong correlation to _Months.since.First.Donation_ but weak to all other including _Made.Donation.in.March.2007_ which we want to predict.
+- _Distance.To.Average_: on the other hand this feature correlates to _Made.Donation.in.March.2007_ which we want to predict and also _Months.since.Last.Donation_ and _Number.of.Donations_.
 
-```r
-full$Count <- 1 # add auxilary attribute
-
-full.agg <- aggregate(Count ~ Avg.Donations.per.Month, data = full, FUN = sum)
-
-full.agg$Donator.Type <- cut(full.agg$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
-full.agg$Donator.Type <- factor(ifelse(is.na(full.agg$Donator.Type), "dt0", paste(full.agg$Donator.Type)), levels = c(levels(full.agg$Donator.Type), "dt0"))
-
-full$Count <- NULL #get rid of auxilary attribute
-
-full.donators <- aggregate(Count ~ Donator.Type, data = full.agg, FUN = sum)
-
-ggplot(data = full.donators, mapping = aes(full.donators$Donator.Type, full.donators$Count)) + 
-  geom_bar(stat="sum", 
-           col = "black",
-           size = .5,
-           fill= "blue", 
-           alpha = .5) + 
-  labs(x="Donator Types", y="Count") + theme_bw()
-```
-
-![](Predict_Blood_Donations_files/figure-html/investigate-average-feature-1.png)<!-- -->
 
 ```r
-rm(full.agg, full.donators)
-```
+train$Average.Months.Per.Donation <- (train$Months.since.First.Donation - train$Months.since.Last.Donation) / train$Number.of.Donations
+test$Average.Months.Per.Donation <- (test$Months.since.First.Donation - test$Months.since.Last.Donation) / test$Number.of.Donations
 
-And now with those values we can establish new feature in full original datasets:
-
-```r
-train$Donator.Type <- cut(train$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
-train$Donator.Type <- factor(ifelse(is.na(train$Donator.Type), "dt0", paste(train$Donator.Type)), levels = c(levels(train$Donator.Type), "dt0"))
-
-test$Donator.Type <- cut(test$Avg.Donations.per.Month, c(0,2.9,4.5,7,32), labels = c("dt1","dt2","dt3","dt4"), include.lowest = F)
-test$Donator.Type <- factor(ifelse(is.na(test$Donator.Type), "dt0", paste(test$Donator.Type)), levels = c(levels(test$Donator.Type), "dt0"))
+train$Distance.To.Average <- exp(-abs(train$Average.Months.Per.Donation - train$Months.since.Last.Donation))
+test$Distance.To.Average <- exp(-abs(test$Average.Months.Per.Donation - test$Months.since.Last.Donation))
 ```
 
 # Outliers
 Outliers are big topic and sooner or later there is the time to get rid of them to improve machine learning algorithm. Of course we don't want to remove them all and definitelly we cannot remove them from test data.
 
-When investigating outliers and defining limits for it's filtration we need to take into account all the relevant attributes in training data and do for example boxplots. Let's prepare boxplots for _Number.of.Donations_, _Months.since.Last.Donation_, _Months.since.First.Donation_ and _Avg.Donations.per.Month_. Maybe we can later take into account also _Donator.Type_.
+When investigating outliers and defining limits for it's filtration we need to take into account all the relevant attributes in training data and do for example boxplots. Let's prepare boxplots for _Number.of.Donations_, _Months.since.Last.Donation_, _Months.since.First.Donation_ and _Average.Months.Per.Donation_. Maybe we can later take into account also _Donator.Type_.
 
 
 ```r
@@ -235,17 +190,17 @@ mfd <- ggplot(data = train, mapping = aes(factor("train"), Months.since.First.Do
 
 
 ```r
-qnt <- quantile(train$Avg.Donations.per.Month, probs=c(.25, .75))
-H <- 1.5 * IQR(train$Avg.Donations.per.Month)
+qnt <- quantile(train$Average.Months.Per.Donation, probs=c(.25, .75))
+H <- 1.5 * IQR(train$Average.Months.Per.Donation)
 adm.min <- qnt[1] - H
 adm.max <- qnt[2] + H
 
-adm <- ggplot(data = train, mapping = aes(factor("train"), Avg.Donations.per.Month)) + 
+adm <- ggplot(data = train, mapping = aes(factor("train"), Average.Months.Per.Donation)) + 
        geom_boxplot() + geom_hline(yintercept = adm.min, color ="orange") + 
        geom_hline(yintercept = adm.max, color = "orange") + 
        geom_text(aes(x = 0.5, y = adm.min, label = adm.min), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
        geom_text(aes(x = 0.5, y = adm.max, label = adm.max), hjust=-0.3, vjust=-1, size = 3, colour = "orange") +
-       labs(title = "Boxplot Avg.Donations.per.Month", x = "Train data") + theme_bw()
+       labs(title = "Boxplot Average.Months.Per.Donation", x = "Train data") + theme_bw()
 ```
 
 Boxplot visualizations contains boundaries (calculated as 25 % and 75 % quantiles +/- 1.5x interquartile range) defined by orange color under and over which we could look for outliers. But not all of them we want to filter out, because as much we filter out as less we will have data for training. So, there has to be boundary for each attribute given by purple line. Those purple limits (if any) are then used for finding outliers which are summarized in following table.
@@ -264,7 +219,7 @@ Let's remove outliers from training data.
 
 ```r
 # 11 outliers X ids
-X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Avg.Donations.per.Month > 25), "X"]
+X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Average.Months.Per.Donation > 25), "X"]
 length(X)
 ```
 
@@ -274,15 +229,9 @@ length(X)
 
 ```r
 # 23 outliers X ids
-X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Avg.Donations.per.Month > 20), "X"]
-length(X)
-```
+#X <- train[(train$Number.of.Donations > 30 | train$Months.since.Last.Donation > 50 | train$Average.Months.Per.Donation > 20), "X"]
+#length(X)
 
-```
-## [1] 23
-```
-
-```r
 train <- train[!(train$X %in% X),]
 ```
 
@@ -320,7 +269,7 @@ obj
 ##  gamma cost
 ##    0.5    4
 ## 
-## - best performance: 0.2241934
+## - best performance: 0.2197485
 ```
 
 
@@ -338,9 +287,9 @@ obj
 ## 
 ## - best parameters:
 ##  gamma cost
-##    0.5    4
+##      1    4
 ## 
-## - best performance: 0.2116804
+## - best performance: 0.2031286
 ```
 With this result we can perform the prediction either with recommended parameters for cost and gamma or with empirically found:
 
@@ -356,15 +305,14 @@ Second algorithm based on discussion tips on DrivenData site under the cometitio
 
 ```r
 set.seed(345)  #reproducibility
-rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation + Avg.Donations.per.Month + Donator.Type, data = train.train)
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation + Average.Months.Per.Donation + Distance.To.Average, data = train)
 
 # Show model error
 plot(rf_model, ylim=c(0,0.3))
 legend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3)
 ```
 
-![](Predict_Blood_Donations_files/figure-html/rf-tune-train.train-prediction-1.png)<!-- -->
-
+![](Predict_Blood_Donations_files/figure-html/rf-tune-train-prediction-1.png)<!-- -->
 
 ```r
 # Get importance
@@ -387,18 +335,15 @@ ggplot(rankImportance, aes(x = reorder(Variables, Importance), y = Importance, f
   labs(x = 'Variables') + coord_flip() + theme_bw()
 ```
 
-![](Predict_Blood_Donations_files/figure-html/rf-importance-train.train-prediction-1.png)<!-- -->
+![](Predict_Blood_Donations_files/figure-html/rf-tune-train-prediction-2.png)<!-- -->
 
 
 ```r
 set.seed(345)  #reproducibility
-rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train.train, sampsize = 20)
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Distance.To.Average, data = train.train, sampsize = 5)
 
 pred <- predict(rf_model, train.test, type = "prob")[,"1"] # we want to predict positive outcome probability
 ```
-
-### Tuning prediction (another algorithm from another package)
-We can try carret package for example and another model like logistic regression or such. Please establish another section that we keep info what has been used and how to not repeat the same mistakes ;-). And please set the seed for reproducibility as you can see it above.
 
 ## Model Evaluation
 When we have binary classification problem we can simple caclulate accuracy and present cofusion matrix, but in this case when we calculate probability as output not the 1 or 0 class we need to evaluate it differently.
@@ -420,7 +365,7 @@ LogLossBinary(train.test$Made.Donation.in.March.2007, pred)
 ```
 
 ```
-## [1] 0.4451362
+## [1] 0.4866215
 ```
 
 ## Final Prediction
@@ -451,28 +396,44 @@ Number.of.Donations + Months.since.Last.Donation + Months.since.First.Donation  
 
 ```r
 set.seed(345)  #reproducibility
-rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations, data = train, sampsize = 20)
+rf_model <- randomForest(factor(Made.Donation.in.March.2007) ~ Distance.To.Average, data = train, sampsize = 20)
 
 pred <- predict(rf_model, test, type = "prob")[,"1"] # we want to predict positive outcome probability
 ```
 
 Evaluation notes about best features combination for prediction:
 
-RF Features Setup                                                                   |Log Loss Evaluation |Log Loss DrivenData
-------------------------------------------------------------------------------------|---------|---------
-Avg.Donations.per.Month                                                             |3.3900730|
-Avg.Donations.per.Month + Months.since.First.Donation                               |2.3819310|
-Avg.Donations.per.Month + Months.since.First.Donation + Months.since.Last.Donation  |1.9348560|
-Avg.Donations.per.Month + Months.since.First.Donation + Number.of.Donations         |1.9057520|
-and sampsize = 100                                                                  |0.7061318|
-and sampsize = 50                                                                   |0.6488936|
-and sampsize = 20                                                                   |0.6171891|0.5007
-and sampsize = 20 (removed 11 outliers)                                             |0.5107301|0.4998
-and sampsize = 20 (removed 23 outliers)                                             |0.4451362|0.5002
-and sampsize = 10                                                                   |0.5850539|0.5017
-and sampsize = 10 (removed 11 outliers)                                             |0.5211104|
-and sampsize = 5                                                                    |0.5796463|
-and sampsize = 5 (removed 11 outliers)                                              |0.5471914|
+RF Features Setup                                                                       |Log Loss Evaluation |Log Loss DrivenData
+----------------------------------------------------------------------------------------|---------|---------
+Average.Months.Per.Donation                                                             |3.3900730|
+Average.Months.Per.Donation + Months.since.First.Donation                               |2.3819310|
+Average.Months.Per.Donation + Months.since.First.Donation + Months.since.Last.Donation  |1.9348560|
+Average.Months.Per.Donation + Months.since.First.Donation + Number.of.Donations         |1.9057520|
+and sampsize = 100                                                                      |0.7061318|
+and sampsize = 50                                                                       |0.6488936|
+and sampsize = 20                                                                       |0.6171891|0.5007
+and sampsize = 20 (removed 11 outliers)                                                 |0.5107301|0.4998
+and sampsize = 20 (removed 23 outliers)                                                 |0.4451362|0.5002
+and sampsize = 10                                                                       |0.5850539|0.5017
+and sampsize = 10 (removed 11 outliers)                                                 |0.5211104|
+and sampsize = 5                                                                        |0.5796463|
+and sampsize = 5 (removed 11 outliers)                                                  |0.5471914|
+Distance.To.Average                                                                     ||
+and sampsize = 20                                                                       |0.6258972|
+and sampsize = 20 (removed 11 outliers)                                                 |0.5088622|0.4368
+and sampsize = 10                                                                       |0.5948609|
+and sampsize = 5                                                                        |0.5892294|
+and sampsize = 5 (removed 11 outliers)                                                  |0.4866215|
+Distance.To.Average + Average.Months.Per.Donation                                       ||
+and sampsize = 20                                                                       |0.6137495|
+and sampsize = 10                                                                       |0.5882106|
+and sampsize = 5                                                                        |0.5650826|
+Distance.To.Average + Average.Months.Per.Donation + Months.since.First.Donation         ||
+and sampsize = 5                                                                        |0.5720995|
+Distance.To.Average + Average.Months.Per.Donation + Number.of.Donations                 ||
+and sampsize = 5                                                                        |0.5586326|
+Distance.To.Average + Number.of.Donations                                               ||
+and sampsize = 5                                                                        |0.5580574|
 
 # Write Output to File
 
@@ -484,11 +445,11 @@ head(out, 5)
 
 ```
 ##       Made Donation in March 2007
-## 1 659                       0.402
-## 2 276                       0.414
-## 3 263                       0.122
-## 4 303                       0.442
-## 5  83                       0.436
+## 1 659                       0.382
+## 2 276                       0.100
+## 3 263                       0.188
+## 4 303                       0.066
+## 5  83                       0.498
 ```
 
 ```r
